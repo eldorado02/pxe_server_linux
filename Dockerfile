@@ -1,6 +1,18 @@
 # syntax=docker/dockerfile:1.4
 
 # =============================================================================
+# STAGE 0 — nwipe-builder : Compilation/récupération de nwipe
+# =============================================================================
+FROM debian:bookworm-slim AS nwipe-builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        nwipe \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
 # STAGE 1 — iso-modifier : Désossage et dégraissage RADICAL de l'ISO
 # =============================================================================
 FROM debian:bookworm-slim AS iso-modifier
@@ -30,7 +42,7 @@ RUN osquashfs="`find /tmp/iso-ext/live/ -name 'filesystem.squashfs'`" \
     && unsquashfs -d /tmp/sysroot "$osquashfs"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 🔥 LE COUTRE-COUPERET : On vire tout le superflu graphique pour mksquashfs
+# 🔥 Nettoyage graphique
 # ─────────────────────────────────────────────────────────────────────────────
 RUN rm -f /tmp/sysroot/etc/systemd/system/display-manager.service \
     && rm -f /tmp/sysroot/etc/systemd/system/graphical.target \
@@ -52,27 +64,36 @@ RUN rm -f /tmp/sysroot/etc/systemd/system/display-manager.service \
 RUN ln -sf /lib/systemd/system/multi-user.target \
         /tmp/sysroot/etc/systemd/system/default.target
 
-# Désactiver le module audio SOF pour éviter le spam kernel
+# Désactiver le module audio SOF
 RUN mkdir -p /tmp/sysroot/etc/modprobe.d \
     && printf 'blacklist snd_sof_pci\nblacklist snd_sof_pci_intel_tgl\nblacklist snd_hda_intel\nblacklist snd_hda_codec_hdmi\n' \
         > /tmp/sysroot/etc/modprobe.d/blacklist-audio.conf
 
-# Injection de ton script de wipe et configuration SSH
+# Injection de nwipe depuis le stage builder
+COPY --from=nwipe-builder /usr/sbin/nwipe /tmp/sysroot/usr/sbin/nwipe
+COPY --from=nwipe-builder /usr/lib/x86_64-linux-gnu/libncurses* /tmp/sysroot/usr/lib/x86_64-linux-gnu/
+COPY --from=nwipe-builder /usr/lib/x86_64-linux-gnu/libtinfo* /tmp/sysroot/usr/lib/x86_64-linux-gnu/
+COPY --from=nwipe-builder /usr/lib/x86_64-linux-gnu/libpthread* /tmp/sysroot/usr/lib/x86_64-linux-gnu/
+RUN chmod +x /tmp/sysroot/usr/sbin/nwipe
+
+# Injection script wipe + SSH — ordre corrigé : mkdir AVANT cp
 COPY client_wipe.sh /tmp/sysroot/root/client_wipe.sh
-RUN cp /root/.ssh/id_ed25519 /tmp/sysroot/root/.ssh/id_ed25519 \
+RUN mkdir -p /tmp/sysroot/root/.ssh \
+    && cp /root/.ssh/id_ed25519 /tmp/sysroot/root/.ssh/id_ed25519 \
     && chmod +x /tmp/sysroot/root/client_wipe.sh \
     && chmod 600 /tmp/sysroot/root/.ssh/id_ed25519 \
-    && mkdir -p /tmp/sysroot/root/.ssh \
+    && chmod 700 /tmp/sysroot/root/.ssh \
     && printf 'StrictHostKeyChecking no\nUserKnownHostsFile /dev/null\n' \
         > /tmp/sysroot/root/.ssh/config
 
-# Service de boot automatique en mode TTY textuel
+# Service de boot automatique
 RUN printf '[Unit]\nDescription=Execution du Script de Wipe Auto\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=idle\nExecStart=/root/client_wipe.sh\nStandardOutput=journal+console\nStandardError=journal+console\nTTYPath=/dev/tty1\n\n[Install]\nWantedBy=multi-user.target\n' \
     > /tmp/sysroot/etc/systemd/system/pxe-wipe.service \
-    && ln -s /etc/systemd/system/pxe-wipe.service \
+    && mkdir -p /tmp/sysroot/etc/systemd/system/multi-user.target.wants \
+    && ln -sf /etc/systemd/system/pxe-wipe.service \
         /tmp/sysroot/etc/systemd/system/multi-user.target.wants/pxe-wipe.service
 
-# La re-compression sera BEAUCOUP plus rapide car le dossier a fondu
+# Recompression
 RUN mkdir -p /tmp/output \
     && mksquashfs /tmp/sysroot /tmp/output/filesystem.squashfs \
         -comp xz -Xbcj x86 -b 1M -no-progress -noappend
