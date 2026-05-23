@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.4
 
 # =============================================================================
-# STAGE 0 — nwipe-builder : Compilation/récupération de nwipe
+# STAGE 0 — nwipe-builder : Compilation/récupération de nwipe + python3
 # =============================================================================
 FROM debian:bookworm-slim AS nwipe-builder
 
@@ -10,6 +10,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         nwipe \
+        python3 \
+        python3-reportlab \
     && rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
@@ -42,7 +44,7 @@ RUN osquashfs="`find /tmp/iso-ext/live/ -name 'filesystem.squashfs'`" \
     && unsquashfs -d /tmp/sysroot "$osquashfs"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 🔥 Nettoyage graphique
+# Nettoyage graphique
 # ─────────────────────────────────────────────────────────────────────────────
 RUN rm -f /tmp/sysroot/etc/systemd/system/display-manager.service \
     && rm -f /tmp/sysroot/etc/systemd/system/graphical.target \
@@ -69,14 +71,24 @@ RUN mkdir -p /tmp/sysroot/etc/modprobe.d \
     && printf 'blacklist snd_sof_pci\nblacklist snd_sof_pci_intel_tgl\nblacklist snd_hda_intel\nblacklist snd_hda_codec_hdmi\n' \
         > /tmp/sysroot/etc/modprobe.d/blacklist-audio.conf
 
-# Injection de nwipe depuis le stage builder
-COPY --from=nwipe-builder /usr/sbin/nwipe /tmp/sysroot/usr/sbin/nwipe
-COPY --from=nwipe-builder /usr/lib/x86_64-linux-gnu/libncurses* /tmp/sysroot/usr/lib/x86_64-linux-gnu/
-COPY --from=nwipe-builder /usr/lib/x86_64-linux-gnu/libtinfo* /tmp/sysroot/usr/lib/x86_64-linux-gnu/
-COPY --from=nwipe-builder /usr/lib/x86_64-linux-gnu/libpthread* /tmp/sysroot/usr/lib/x86_64-linux-gnu/
+# Injection de nwipe + dépendances depuis le stage builder
+COPY --from=nwipe-builder /usr/sbin/nwipe                                    /tmp/sysroot/usr/sbin/nwipe
+COPY --from=nwipe-builder /usr/lib/x86_64-linux-gnu/libncurses*              /tmp/sysroot/usr/lib/x86_64-linux-gnu/
+COPY --from=nwipe-builder /usr/lib/x86_64-linux-gnu/libtinfo*                /tmp/sysroot/usr/lib/x86_64-linux-gnu/
+COPY --from=nwipe-builder /usr/lib/x86_64-linux-gnu/libpthread*              /tmp/sysroot/usr/lib/x86_64-linux-gnu/
 RUN chmod +x /tmp/sysroot/usr/sbin/nwipe
 
-# Injection script wipe + SSH — ordre corrigé : mkdir AVANT cp
+# ─────────────────────────────────────────────────────────────────────────────
+# Injection python3 + reportlab dans le sysroot client
+# (nécessaire pour générer le PDF depuis client_wipe.sh)
+# ─────────────────────────────────────────────────────────────────────────────
+COPY --from=nwipe-builder /usr/bin/python3                                    /tmp/sysroot/usr/bin/python3
+COPY --from=nwipe-builder /usr/lib/python3                                    /tmp/sysroot/usr/lib/python3
+COPY --from=nwipe-builder /usr/lib/python3.11                                 /tmp/sysroot/usr/lib/python3.11
+COPY --from=nwipe-builder /usr/lib/x86_64-linux-gnu/libpython3*              /tmp/sysroot/usr/lib/x86_64-linux-gnu/
+COPY --from=nwipe-builder /usr/lib/python3/dist-packages/reportlab            /tmp/sysroot/usr/lib/python3/dist-packages/reportlab
+
+# Injection script wipe + SSH
 COPY client_wipe.sh /tmp/sysroot/root/client_wipe.sh
 RUN mkdir -p /tmp/sysroot/root/.ssh \
     && cp /root/.ssh/id_ed25519 /tmp/sysroot/root/.ssh/id_ed25519 \
@@ -126,9 +138,9 @@ RUN mkdir -p /var/tftpboot/grub /var/tftpboot/pxelinux.cfg /var/nfsroot/live /op
     && find /usr/lib/shim -name "shimx64.efi.signed"    | head -1 | xargs -I{} cp {} /var/tftpboot/bootx64.efi \
     && find /usr/lib/grub -name "grubnetx64.efi.signed" | head -1 | xargs -I{} cp {} /var/tftpboot/grubx64.efi
 
-COPY --from=iso-modifier /tmp/iso-ext/live/vmlinuz* /var/tftpboot/vmlinuz
-COPY --from=iso-modifier /tmp/iso-ext/live/initrd.img* /var/tftpboot/initrd.img
-COPY --from=iso-modifier /tmp/output/filesystem.squashfs /var/nfsroot/live/filesystem.squashfs
+COPY --from=iso-modifier /tmp/iso-ext/live/vmlinuz*            /var/tftpboot/vmlinuz
+COPY --from=iso-modifier /tmp/iso-ext/live/initrd.img*         /var/tftpboot/initrd.img
+COPY --from=iso-modifier /tmp/output/filesystem.squashfs       /var/nfsroot/live/filesystem.squashfs
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
