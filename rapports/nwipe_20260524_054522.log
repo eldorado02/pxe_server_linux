@@ -1,0 +1,68 @@
+[2026/05/24 05:45:22]  notice: Found /dev/nvme0n1, NVME, SAMSUNG MZVLQ512HALU-00007, 512 GB, S/N=S4Y5NJ0R608454
+[2026/05/24 05:45:22]    info: Automatically enumerated 1 devices.
+[2026/05/24 05:45:22]  notice: bios-version = Version 2.39
+[2026/05/24 05:45:22]  notice: bios-release-date = 03/22/2024
+[2026/05/24 05:45:22]  notice: system-manufacturer = FUJITSU CLIENT COMPUTING LIMITED
+[2026/05/24 05:45:22]  notice: system-product-name = LIFEBOOK E5411
+[2026/05/24 05:45:22]  notice: system-version = 10601736746
+[2026/05/24 05:45:22]  notice: system-serial-number = DSFU006412
+[2026/05/24 05:45:22]  notice: system-uuid = 12e98396-0f82-11ec-8b14-e98392d48e29
+[2026/05/24 05:45:22]  notice: baseboard-manufacturer = FUJITSU CLIENT COMPUTING LIMITED
+[2026/05/24 05:45:22]  notice: baseboard-product-name = FJNB2E8
+[2026/05/24 05:45:22]  notice: baseboard-version = E3
+[2026/05/24 05:45:22]  notice: baseboard-serial-number = 1585244400118
+[2026/05/24 05:45:22]  notice: baseboard-asset-tag =  
+[2026/05/24 05:45:22]  notice: chassis-manufacturer = FUJITSU CLIENT COMPUTING LIMITED
+[2026/05/24 05:45:22]  notice: chassis-type = Notebook
+[2026/05/24 05:45:22]  notice: chassis-version = LIFEBOOK E5411
+[2026/05/24 05:45:22]  notice: chassis-serial-number = DSFU006412
+[2026/05/24 05:45:22]  notice: chassis-asset-tag =  
+[2026/05/24 05:45:22]  notice: processor-family = Core i5
+[2026/05/24 05:45:22]  notice: processor-manufacturer = Intel(R) Corporation
+[2026/05/24 05:45:22]  notice: processor-version = 11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz
+[2026/05/24 05:45:22]  notice: processor-frequency = 2300 MHz
+[2026/05/24 05:45:22]  notice: Opened entropy source '/dev/urandom'.
+[2026/05/24 05:45:22]  notice: hwmon: Module drivetemp loaded, drive temperatures available
+[2026/05/24 05:45:22]  notice: hwmon: nvme0n1 has temperature monitoring
+[2026/05/24 05:45:22]  notice: Program options are set as follows...
+[2026/05/24 05:45:22]  notice:   autonuke = 1 (on)
+[2026/05/24 05:45:22]  notice:   autopoweroff = 0 (off)
+[2026/05/24 05:45:22]  notice:   do not wait for a key before exiting
+[2026/05/24 05:45:22]  notice:   do not show GUI interface
+[2026/05/24 05:45:22]  notice:   banner   = nwipe 0.33
+[2026/05/24 05:45:22]  notice:   prng     = Isaac64
+[2026/05/24 05:45:22]  notice:   method   = Fill With Zeros
+[2026/05/24 05:45:22]  notice:   quiet    = 0
+[2026/05/24 05:45:22]  notice:   rounds   = 1
+[2026/05/24 05:45:22]  notice:   sync     = 100000
+[2026/05/24 05:45:22]  notice:   verify   = 1 (last pass)
+[2026/05/24 05:45:22]  notice: /dev/nvme0n1 has serial number S4Y5NJ0R608454
+[2026/05/24 05:45:22]  notice: /dev/nvme0n1, sect/blk/dev 512/4096/512110190592
+[2026/05/24 05:45:22]  notice: Invoking method 'Fill With Zeros' on /dev/nvme0n1
+[2026/05/24 05:45:22]  notice: Starting round 1 of 1 on /dev/nvme0n1
+[2026/05/24 05:45:22]  notice: Starting pass 1/1, round 1/1, on /dev/nvme0n1
+[2026/05/24 06:32:13]  notice: 512110190592 bytes written to /dev/nvme0n1
+[2026/05/24 06:32:13]  notice: Finished pass 1/1, round 1/1, on /dev/nvme0n1
+[2026/05/24 06:32:13]  notice: Finished final round 1 of 1 on /dev/nvme0n1
+[2026/05/24 06:32:13]  notice: Blanking device /dev/nvme0n1
+[2026/05/24 06:54:25]  notice: 512110190592 bytes written to /dev/nvme0n1
+[2026/05/24 06:54:25]  notice: Verifying that /dev/nvme0n1 is empty.
+[2026/05/24 07:02:36]  notice: 512110190592 bytes read from /dev/nvme0n1
+[2026/05/24 07:02:36]  notice: [SUCCESS] Verified that /dev/nvme0n1 is empty.
+[2026/05/24 07:02:36]  notice: [SUCCESS] Blanked device /dev/nvme0n1
+
+******************************** Error Summary *********************************
+!   Device | Pass Errors | Verifications Errors | Fdatasync I\O Errors
+--------------------------------------------------------------------------------
+   nvme0n1 |           0 |                    0 |                    0
+********************************************************************************
+
+********************************* Drive Status *********************************
+!   Device | Status | Thru-put | HH:MM:SS | Model/Serial Number
+--------------------------------------------------------------------------------
+   nvme0n1 | Erased |   0 B/s | 01:17:14 | SAMSUNG MZVLQ512H/S4Y5NJ0R608454
+--------------------------------------------------------------------------------
+[2026/05/24 07:02:39] Total Throughput   0 B/s, Fill With Zeros, 1R+B+VL
+********************************************************************************
+
+[2026/05/24 07:02:39]    info: Nwipe successfully completed. See summary table for details.
