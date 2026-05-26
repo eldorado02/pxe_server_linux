@@ -11,11 +11,6 @@ RAPPORTS_DIR="$HOME/rapports_wipe"
 # Créer le dossier de rapports sur l'hôte
 mkdir -p "$RAPPORTS_DIR"
 
-# Charger les modules NFS sur l'hôte si pas déjà chargés
-echo "=== Chargement des modules NFS ==="
-sudo modprobe nfsd  || true
-sudo modprobe nfs   || true
-
 # Supprimer l'ancien conteneur si existant
 if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then
     echo "=== Suppression de l'ancien conteneur ==="
