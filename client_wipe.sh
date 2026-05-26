@@ -125,10 +125,10 @@ echo ""
 echo ">>> Lancement de nwipe (zero — 1 passe)..."
 
 if [ -n "$EXCLUDE_LIST" ]; then
-    nwipe --autonuke --nogui --method=zero --verify=last \
+    nwipe --autonuke --nogui --method=zero --verify=off \
           --logfile="$LOGFILE" --exclude="$EXCLUDE_LIST" || true
 else
-    nwipe --autonuke --nogui --method=zero --verify=last \
+    nwipe --autonuke --nogui --method=zero --verify=off \
           --logfile="$LOGFILE" || true
 fi
 

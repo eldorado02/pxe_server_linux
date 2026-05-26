@@ -14,6 +14,10 @@ echo "Interface : $INTERFACE | IP : $SERVER_IP"
 # --- SSH ---
 /usr/sbin/sshd
 
+# --- Modules NFS (chargés depuis le conteneur privilégié) ---
+modprobe nfsd 2>/dev/null || true
+modprobe nfs  2>/dev/null || true
+
 # --- Montage tmpfs pour NFS ---
 if [ -f /var/nfsroot/live/filesystem.squashfs ]; then
     mkdir -p /tmp/nfs_backup
