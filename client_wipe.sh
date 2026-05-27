@@ -117,6 +117,7 @@ echo "----------------------------------------------------------"
 
 # ──────────────────────────────────────────────────────────
 # 6. Nwipe — code retour capturé proprement
+#    --PDFreportpath : PDF certifié natif généré par nwipe
 # ──────────────────────────────────────────────────────────
 LOGFILE="$RAPPORT_LOCAL/nwipe_${DATE_NOW}.log"
 WIPE_ERRORS=0
@@ -126,10 +127,13 @@ echo ">>> Lancement de nwipe (zero — 1 passe)..."
 
 if [ -n "$EXCLUDE_LIST" ]; then
     nwipe --autonuke --nogui --method=zero --verify=off \
-          --logfile="$LOGFILE" --exclude="$EXCLUDE_LIST" || true
+          --logfile="$LOGFILE" \
+          --PDFreportpath="$RAPPORT_LOCAL" \
+          --exclude="$EXCLUDE_LIST" || true
 else
     nwipe --autonuke --nogui --method=zero --verify=off \
-          --logfile="$LOGFILE" || true
+          --logfile="$LOGFILE" \
+          --PDFreportpath="$RAPPORT_LOCAL" || true
 fi
 
 # Vérifier si le log contient un succès
@@ -161,8 +165,8 @@ done
 # ──────────────────────────────────────────────────────────
 # 8. Génération PDF
 # ──────────────────────────────────────────────────────────
-echo "Génération du rapport PDF..."
-PDF_FILE="$RAPPORT_LOCAL/rapport_${HOSTNAME_ID}.pdf"
+echo "Génération du rapport PDF (old)..."
+PDF_FILE="$RAPPORT_LOCAL/old_rapport_${HOSTNAME_ID}.pdf"
 
 python3 - << PYEOF
 import os, sys
@@ -268,4 +272,4 @@ echo "----------------------------------------------------------"
 echo "Machine sécurisée. Extinction dans 10 secondes..."
 sleep 10
 sync
-poweroff -f
+# poweroff -f
