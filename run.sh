@@ -1,35 +1,49 @@
 #!/bin/bash
-# =============================================================================
-# run.sh — Lance le serveur PXE avec persistance des rapports
-# =============================================================================
+# =============================================================
+# run.sh — Lance le serveur PXE ShredOS
+# Usage : ./run.sh [start|stop|logs|rapports]
+# =============================================================
 set -euo pipefail
 
-IMAGE="pxe_server"
-CONTAINER="pxe"
-RAPPORTS_DIR="$HOME/rapports_wipe"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
-# Créer le dossier de rapports sur l'hôte
-mkdir -p "$RAPPORTS_DIR"
+# Créer le dossier rapports si absent
+mkdir -p ./rapports
 
-# Supprimer l'ancien conteneur si existant
-if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then
-    echo "=== Suppression de l'ancien conteneur ==="
-    docker rm -f "$CONTAINER"
-fi
+case "${1:-start}" in
 
-echo "=== Lancement du serveur PXE ==="
-docker run -d \
-    --privileged \
-    --network host \
-    --name "$CONTAINER" \
-    -v "$RAPPORTS_DIR":/opt/pxe-wipe/rapports \
-    "$IMAGE"
+  start)
+    echo "=== Démarrage PXE ShredOS ==="
+    docker compose up -d --build
+    echo ""
+    echo "=== Serveur démarré ==="
+    echo "Logs PXE : docker compose logs -f pxe"
+    echo "Logs FTP : docker compose logs -f ftp"
+    echo "Rapports : ls ./rapports"
+    ;;
 
-echo "=== Serveur PXE démarré ! ==="
-echo "Rapports sauvegardés dans : $RAPPORTS_DIR"
-echo ""
-echo "Commandes utiles :"
-echo "  Voir les logs      : docker logs -f $CONTAINER"
-echo "  Entrer dedans      : docker exec -it $CONTAINER bash"
-echo "  Voir les rapports  : ls $RAPPORTS_DIR"
-echo "  Arrêter            : docker stop $CONTAINER"
+  stop)
+    echo "=== Arrêt ==="
+    docker compose down
+    ;;
+
+  logs)
+    docker compose logs -f
+    ;;
+
+  rapports)
+    echo "=== Rapports reçus ==="
+    find ./rapports -name "*.pdf" -o -name "*.log" 2>/dev/null \
+      | sort \
+      | while read -r f; do
+          echo "  $(ls -lh "$f" | awk '{print $5, $9}')"
+        done
+    ;;
+
+  *)
+    echo "Usage : $0 [start|stop|logs|rapports]"
+    exit 1
+    ;;
+
+esac

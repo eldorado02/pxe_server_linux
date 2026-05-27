@@ -1,0 +1,43 @@
+services:
+
+  # ============================================================
+  # SERVICE PXE — DHCP + TFTP + NFS → boot ShredOS sur les clients
+  # ============================================================
+  pxe:
+    build:
+      context: ./pxe
+      dockerfile: Dockerfile
+    container_name: pxe
+    restart: unless-stopped
+    privileged: true          # requis pour NFS kernel + modprobe
+    network_mode: host        # requis pour DHCP broadcast
+    volumes:
+      - rapports:/opt/pxe-wipe/rapports
+    environment:
+      - SHREDOS_VERSION=${SHREDOS_VERSION:-latest}
+    depends_on:
+      - ftp
+
+  # ============================================================
+  # SERVICE FTP — vsftpd reçoit les PDF + logs des clients
+  # ============================================================
+  ftp:
+    build:
+      context: ./ftp
+      dockerfile: Dockerfile
+    container_name: ftp
+    restart: unless-stopped
+    network_mode: host        # requis pour les clients PXE sur réseau local
+    volumes:
+      - rapports:/home/shredreports/ftpdata
+    environment:
+      - FTP_USER=${FTP_USER:-shredreports}
+      - FTP_PASS=${FTP_PASS:-shredos2025}
+
+volumes:
+  rapports:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${RAPPORTS_DIR:-./rapports}
