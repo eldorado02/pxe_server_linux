@@ -117,8 +117,12 @@ echo "----------------------------------------------------------"
 
 # ──────────────────────────────────────────────────────────
 # 6. Nwipe — code retour capturé proprement
+#    --PDFreportpath attend un DOSSIER (nwipe nomme le PDF lui-même)
+#    → on utilise un dossier temporaire dédié, puis on renomme
 # ──────────────────────────────────────────────────────────
 LOGFILE="$RAPPORT_LOCAL/nwipe_${DATE_NOW}.log"
+NWIPE_PDF_DIR="$RAPPORT_LOCAL/nwipe_pdf_tmp"
+mkdir -p "$NWIPE_PDF_DIR" || { echo "ERREUR FATALE : impossible de créer $NWIPE_PDF_DIR"; sleep 30; poweroff -f; }
 WIPE_ERRORS=0
 
 echo ""
@@ -126,11 +130,25 @@ echo ">>> Lancement de nwipe (zero — 1 passe)..."
 
 if [ -n "$EXCLUDE_LIST" ]; then
     nwipe --autonuke --nogui --method=zero --verify=off \
-          --logfile="$LOGFILE" --exclude="$EXCLUDE_LIST" || true
+          --logfile="$LOGFILE" \
+          --PDFreportpath="$NWIPE_PDF_DIR" \
+          --exclude="$EXCLUDE_LIST" || true
 else
     nwipe --autonuke --nogui --method=zero --verify=off \
-          --logfile="$LOGFILE" || true
+          --logfile="$LOGFILE" \
+          --PDFreportpath="$NWIPE_PDF_DIR" || true
 fi
+
+# ── Renommage du PDF nwipe vers le nom canonique ──────────
+NWIPE_PDF_SRC=$(find "$NWIPE_PDF_DIR" -maxdepth 1 -name "*.pdf" | head -1 || true)
+NWIPE_PDF_FINAL="$RAPPORT_LOCAL/nwipe_${HOSTNAME_ID}.pdf"
+if [ -n "$NWIPE_PDF_SRC" ]; then
+    mv "$NWIPE_PDF_SRC" "$NWIPE_PDF_FINAL"
+    echo ">>> PDF nwipe renommé : $NWIPE_PDF_FINAL"
+else
+    echo ">>> ATTENTION : nwipe n'a pas généré de PDF dans $NWIPE_PDF_DIR"
+fi
+rmdir "$NWIPE_PDF_DIR" 2>/dev/null || true
 
 # Vérifier si le log contient un succès
 if grep -q "Finished final round" "$LOGFILE" 2>/dev/null; then
@@ -161,8 +179,8 @@ done
 # ──────────────────────────────────────────────────────────
 # 8. Génération PDF
 # ──────────────────────────────────────────────────────────
-echo "Génération du rapport PDF..."
-PDF_FILE="$RAPPORT_LOCAL/rapport_${HOSTNAME_ID}.pdf"
+echo "Génération du rapport PDF (old)..."
+PDF_FILE="$RAPPORT_LOCAL/old_rapport_${HOSTNAME_ID}.pdf"
 
 python3 - << PYEOF
 import os, sys
@@ -268,4 +286,4 @@ echo "----------------------------------------------------------"
 echo "Machine sécurisée. Extinction dans 10 secondes..."
 sleep 10
 sync
-poweroff -f
+# poweroff -f
