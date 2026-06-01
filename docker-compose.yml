@@ -3,18 +3,26 @@ services:
   # ============================================================
   # SERVICE PXE — DHCP + TFTP + NFS → boot ShredOS sur les clients
   # ============================================================
-  pxe:
+  pxev2:
     build:
       context: ./pxe
       dockerfile: Dockerfile
-    container_name: pxe
+    container_name: pxev2
     restart: unless-stopped
     privileged: true          # requis pour NFS kernel + modprobe
     network_mode: host        # requis pour DHCP broadcast
     volumes:
       - rapports:/opt/pxe-wipe/rapports
+      - ${SHREDOS_LOCAL_DIR:-./shredos-2025.11_28_i686_v0.40_20260204_lite-1}:/opt/local-shredos:ro
     environment:
+      - SHREDOS_SOURCE=${SHREDOS_SOURCE:-local}
+      - SHREDOS_LOCAL_PATH=${SHREDOS_LOCAL_PATH:-/opt/local-shredos}
       - SHREDOS_VERSION=${SHREDOS_VERSION:-latest}
+      - NWIPE_METHOD=${NWIPE_METHOD:-zero}
+      - NWIPE_VERIFY=${NWIPE_VERIFY:-off}
+      - NWIPE_EXTRA_OPTIONS=${NWIPE_EXTRA_OPTIONS:-}
+      - FTP_USER=${FTP_USER:-shredreports}
+      - FTP_PASS=${FTP_PASS:-shredos2025}
     depends_on:
       - ftp
 
@@ -33,6 +41,8 @@ services:
     environment:
       - FTP_USER=${FTP_USER:-shredreports}
       - FTP_PASS=${FTP_PASS:-shredos2025}
+      - LEASE_FILE=${LEASE_FILE:-/home/shredreports/ftpdata/dnsmasq.leases}
+      - REPORT_RENAME_SCAN_INTERVAL=${REPORT_RENAME_SCAN_INTERVAL:-10}
 
 volumes:
   rapports:

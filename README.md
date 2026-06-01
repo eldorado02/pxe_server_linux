@@ -1,67 +1,88 @@
-# PXE ShredOS — Serveur d'effacement automatique
+# PXE ShredOS - effacement automatique sans intervention
 
-## Architecture
+Ce projet fournit un serveur PXE conteneurisé pour booter ShredOS sur les clients, lancer nwipe sans GUI, puis récupérer automatiquement logs et certificats via FTP.
 
-```
-Serveur (Docker)                    Clients (réseau)
-┌─────────────────────┐             ┌──────────────┐
-│  service pxe        │  DHCP/TFTP  │              │
-│  - dnsmasq          │ ──────────► │  Boot PXE    │
-│  - NFS (ShredOS)    │  NFS        │  ShredOS     │
-│  - entrypoint.sh    │ ──────────► │  nwipe zero  │
-│                     │             │  (autonuke)  │
-│  service ftp        │  FTP        │              │
-│  - vsftpd           │ ◄────────── │  PDF + log   │
-│  - /rapports        │             │  poweroff    │
-└─────────────────────┘             └──────────────┘
-```
+## Flux global
+
+1. Le client démarre en PXE (BIOS/UEFI).
+2. Le serveur fournit kernel/initrd via TFTP et le système live via NFS.
+3. ShredOS lance nwipe en mode non interactif.
+4. Le client envoie les fichiers de sortie en FTP.
+5. Le serveur renomme les fichiers en format `MAC_disqueID_date`.
+6. Le client s'éteint automatiquement à la fin.
+
+## Prérequis d'exploitation
+
+1. L'utilisateur qui lance le projet doit appartenir au groupe `docker`.
+2. Docker Engine + Docker Compose plugin doivent être installés.
+3. L'image ShredOS locale est attendue dans le dossier:
+	`./shredos-2025.11_28_i686_v0.40_20260204_lite-1/`
+
+Aucune commande `sudo` n'est requise dans le workflow standard.
 
 ## Démarrage
 
 ```bash
-./run.sh start      # build + démarrage
-./run.sh stop       # arrêt
-./run.sh logs       # logs en temps réel
-./run.sh rapports   # liste les PDF reçus
+./run.sh start
+./run.sh logs
+./run.sh health
+./run.sh rapports
+./run.sh stop
 ```
 
-## Configuration (.env)
+## Configuration
 
-| Variable         | Défaut         | Description                        |
-|------------------|----------------|------------------------------------|
-| SHREDOS_VERSION  | latest         | Version ShredOS (ex: v2025.11_29…) |
-| RAPPORTS_DIR     | ./rapports     | Dossier persistant des rapports    |
-| FTP_USER         | shredreports   | Utilisateur FTP                    |
-| FTP_PASS         | shredos2025    | Mot de passe FTP                   |
+Copie recommandée:
 
-## Ce qui se passe côté client
-
-1. Le PC client boot via PXE → reçoit ShredOS par NFS
-2. ShredOS démarre → nwipe lance automatiquement l'effacement zero
-3. nwipe génère un PDF natif certifié pour chaque disque effacé
-4. ShredOS transfère les PDF + logs vers le serveur FTP via lftp
-5. Le PC s'éteint automatiquement
-
-## Rapports
-
-Les PDF nwipe contiennent :
-- Modèle et numéro de série du disque
-- Méthode d'effacement et nombre de passes
-- Statut (succès / erreur)
-- Données SMART du disque (pages 2 et 3)
-- Horodatage
-
-Les fichiers sont déposés dans `./rapports/` sur le serveur hôte.
-
-## Modifier la méthode d'effacement
-
-Dans `pxe/entrypoint.sh`, modifier l'option `--method=` :
-
-```
---method=zero       # Zéro (1 passe, rapide)
---method=dodshort   # DoD 3 passes
---method=dod        # DoD 7 passes
---method=gutmann    # Gutmann 35 passes
+```bash
+cp .env.example .env
 ```
 
-Puis redémarrer : `./run.sh stop && ./run.sh start`
+Variables principales:
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| SHREDOS_SOURCE | local | source image (`local`, `remote`, `auto`) |
+| SHREDOS_LOCAL_DIR | ./shredos-2025.11_28_i686_v0.40_20260204_lite-1 | dossier local monté dans le conteneur PXE |
+| SHREDOS_LOCAL_PATH | /opt/local-shredos | chemin interne conteneur vers les images |
+| NWIPE_METHOD | zero | méthode nwipe (`zero` en test, `dod` en prod) |
+| NWIPE_VERIFY | off | vérification (`off`, `last`, `all`) |
+| NWIPE_EXTRA_OPTIONS | (vide) | options supplémentaires nwipe |
+| RAPPORTS_DIR | ./rapports | stockage persistant des sorties |
+| FTP_USER / FTP_PASS | shredreports / ... | compte FTP de réception |
+
+## Profils test et production
+
+### Test (rapide)
+
+```dotenv
+NWIPE_METHOD=zero
+NWIPE_VERIFY=off
+```
+
+### Production (plus long)
+
+```dotenv
+NWIPE_METHOD=dod
+NWIPE_VERIFY=last
+```
+
+## Nommage des rapports
+
+Le service FTP post-traite automatiquement les fichiers reçus pour les renommer sous la forme:
+
+`MAC_disqueID_date.ext`
+
+Exemple:
+
+`52_54_00_ab_cd_ef_nwipe_log_20260527T083001_20260527T083210Z.log`
+
+La MAC est corrélée à partir des leases DHCP (`dnsmasq.leases`) et des traces de transfert FTP.
+
+## Vérification rapide
+
+1. Lancer `./run.sh start`.
+2. Vérifier `./run.sh health`.
+3. Démarrer un client PXE.
+4. Vérifier la présence des fichiers dans `./rapports`.
+5. Confirmer le renommage en `MAC_disqueID_date`.
