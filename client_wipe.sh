@@ -126,15 +126,15 @@ mkdir -p "$NWIPE_PDF_DIR" || { echo "ERREUR FATALE : impossible de créer $NWIPE
 WIPE_ERRORS=0
 
 echo ""
-echo ">>> Lancement de nwipe (zero — 1 passe)..."
+echo ">>> Lancement de nwipe (dod522022m — 7 passe)... qui respecte la norme"
 
 if [ -n "$EXCLUDE_LIST" ]; then
-    nwipe --autonuke --nogui --method=zero --verify=off \
+    nwipe --autonuke --nogui --method=dod522022m --verify=last \
           --logfile="$LOGFILE" \
           --PDFreportpath="$NWIPE_PDF_DIR" \
           --exclude="$EXCLUDE_LIST" || true
 else
-    nwipe --autonuke --nogui --method=zero --verify=off \
+    nwipe --autonuke --nogui --method=dod522022m --verify=last \
           --logfile="$LOGFILE" \
           --PDFreportpath="$NWIPE_PDF_DIR" || true
 fi
@@ -286,4 +286,4 @@ echo "----------------------------------------------------------"
 echo "Machine sécurisée. Extinction dans 10 secondes..."
 sleep 10
 sync
-# poweroff -f
+poweroff -f

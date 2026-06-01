@@ -15,6 +15,8 @@ docker build \
     -t "$IMAGE" \
     "$SCRIPT_DIR"
 
+docker system prune -f
+
 echo ""
 echo "=== Build terminé ! ==="
 echo "Lancer le serveur : ./run.sh"
