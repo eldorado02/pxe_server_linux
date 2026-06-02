@@ -25,8 +25,9 @@ fi
 # 2. Identification
 # ──────────────────────────────────────────────────────────
 MAC_ADDR=$(cat /sys/class/net/"$IFACE"/address 2>/dev/null | tr -d ':' || echo "UNKNOWNMAC")
-DATE_NOW=$(date +%Y%m%d_%H%M%S)
-HOSTNAME_ID="${MAC_ADDR}_${DATE_NOW}"
+DATE_NOW=$(date +%Y_%m_%d)
+SERIAL_NUMBER_PC=$(sudo cat /sys/class/dmi/id/product_serial)
+HOSTNAME_ID="${DATE_NOW}/${SERIAL_NUMBER_PC}"
 RAPPORT_LOCAL="/root/rapports_effacement/$HOSTNAME_ID"
 mkdir -p "$RAPPORT_LOCAL"
 
@@ -118,37 +119,36 @@ echo "----------------------------------------------------------"
 # ──────────────────────────────────────────────────────────
 # 6. Nwipe — code retour capturé proprement
 #    --PDFreportpath attend un DOSSIER (nwipe nomme le PDF lui-même)
-#    → on utilise un dossier temporaire dédié, puis on renomme
+#    → le PDF est généré directement dans RAPPORT_LOCAL puis renommé
 # ──────────────────────────────────────────────────────────
 LOGFILE="$RAPPORT_LOCAL/nwipe_${DATE_NOW}.log"
-NWIPE_PDF_DIR="$RAPPORT_LOCAL/nwipe_pdf_tmp"
-mkdir -p "$NWIPE_PDF_DIR" || { echo "ERREUR FATALE : impossible de créer $NWIPE_PDF_DIR"; sleep 30; poweroff -f; }
 WIPE_ERRORS=0
 
 echo ""
-echo ">>> Lancement de nwipe (dod522022m — 7 passe)... qui respecte la norme"
+echo ">>> Lancement de nwipe (zero — 1 passe)... qui respecte la norme"
 
 if [ -n "$EXCLUDE_LIST" ]; then
-    nwipe --autonuke --nogui --method=dod522022m --verify=last \
+    nwipe --autonuke --nogui --method=zero --verify=last \
           --logfile="$LOGFILE" \
-          --PDFreportpath="$NWIPE_PDF_DIR" \
+          --PDFreportpath="$RAPPORT_LOCAL" \
           --exclude="$EXCLUDE_LIST" || true
 else
-    nwipe --autonuke --nogui --method=dod522022m --verify=last \
+    nwipe --autonuke --nogui --method=zero --verify=last \
           --logfile="$LOGFILE" \
-          --PDFreportpath="$NWIPE_PDF_DIR" || true
+          --PDFreportpath="$RAPPORT_LOCAL" || true
 fi
 
 # ── Renommage du PDF nwipe vers le nom canonique ──────────
-NWIPE_PDF_SRC=$(find "$NWIPE_PDF_DIR" -maxdepth 1 -name "*.pdf" | head -1 || true)
-NWIPE_PDF_FINAL="$RAPPORT_LOCAL/nwipe_${HOSTNAME_ID}.pdf"
+# Note : on utilise DATE_NOW et SERIAL_NUMBER_PC séparés par "_" (pas "/")
+# pour éviter un chemin imbriqué dans le nom de fichier.
+NWIPE_PDF_SRC=$(find "$RAPPORT_LOCAL" -maxdepth 1 -name "nwipe_report_*.pdf" | head -1 || true)
+NWIPE_PDF_FINAL="$RAPPORT_LOCAL/nwipe_${DATE_NOW}_${SERIAL_NUMBER_PC}.pdf"
 if [ -n "$NWIPE_PDF_SRC" ]; then
     mv "$NWIPE_PDF_SRC" "$NWIPE_PDF_FINAL"
     echo ">>> PDF nwipe renommé : $NWIPE_PDF_FINAL"
 else
-    echo ">>> ATTENTION : nwipe n'a pas généré de PDF dans $NWIPE_PDF_DIR"
+    echo ">>> ATTENTION : nwipe n'a pas généré de PDF dans $RAPPORT_LOCAL"
 fi
-rmdir "$NWIPE_PDF_DIR" 2>/dev/null || true
 
 # Vérifier si le log contient un succès
 if grep -q "Finished final round" "$LOGFILE" 2>/dev/null; then
@@ -180,7 +180,8 @@ done
 # 8. Génération PDF
 # ──────────────────────────────────────────────────────────
 echo "Génération du rapport PDF (old)..."
-PDF_FILE="$RAPPORT_LOCAL/old_rapport_${HOSTNAME_ID}.pdf"
+# Note : on utilise "_" entre DATE et SERIAL pour éviter un slash dans le nom
+PDF_FILE="$RAPPORT_LOCAL/old_rapport_${DATE_NOW}_${SERIAL_NUMBER_PC}.pdf"
 
 python3 - << PYEOF
 import os, sys
@@ -258,21 +259,32 @@ ls -lh "$RAPPORT_LOCAL"
 echo "----------------------------------------------------------"
 
 # ──────────────────────────────────────────────────────────
-# 9. SSH + Transfert
+# 9. SSH + Transfert (PDFs uniquement — pas de log)
+#    Structure cible : /opt/pxe-wipe/rapports/DATE/SERIAL/
 # ──────────────────────────────────────────────────────────
 mkdir -p ~/.ssh
 chmod 700 ~/.ssh
 
 ssh-keyscan -T 10 -H "$SERVER_IP" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-echo "Transfert vers $SERVER_IP:/opt/pxe-wipe/rapports/ ..."
+REMOTE_DIR="/opt/pxe-wipe/rapports/${DATE_NOW}/${SERIAL_NUMBER_PC}"
+echo "Transfert vers $SERVER_IP:$REMOTE_DIR ..."
 
+# Création du dossier DATE/SERIAL sur le serveur
+ssh \
+    -i /root/.ssh/id_ed25519 \
+    -o StrictHostKeyChecking=accept-new \
+    -o ConnectTimeout=30 \
+    root@"$SERVER_IP" \
+    "mkdir -p '$REMOTE_DIR'" 2>/dev/null || true
+
+# Transfert des PDFs uniquement (pas le log)
 scp \
     -i /root/.ssh/id_ed25519 \
     -o StrictHostKeyChecking=accept-new \
     -o ConnectTimeout=30 \
-    -r "$RAPPORT_LOCAL" \
-    root@"$SERVER_IP":/opt/pxe-wipe/rapports/ \
+    "$RAPPORT_LOCAL"/*.pdf \
+    root@"$SERVER_IP":"$REMOTE_DIR/" \
 && echo "Transfert réussi." \
 || {
     echo "AVERTISSEMENT : Échec transfert SSH."

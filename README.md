@@ -1,220 +1,84 @@
-# 🖥️ PXE Server Linux — Effacement sécurisé en masse
+# 🖥️ Serveur PXE — Effacement Sécurisé de PC
 
-Serveur PXE dockerisé permettant d'**effacer simultanément plusieurs PC** via le réseau, selon la norme **DoD 5220.22-M (7 passes)** reconnue par les autorités françaises (ANSSI / douane).
+Ce système permet d'effacer de manière définitive et sécurisée les disques durs de plusieurs ordinateurs en même temps, via le réseau (sans avoir besoin de brancher de clé USB sur chaque ordinateur).
 
----
-
-## 📋 Description
-
-Ce projet crée une image Docker qui agit comme un **serveur PXE complet**. Quand un PC client démarre via le réseau (PXE boot) :
-
-1. Le serveur lui envoie une image **Debian Live** modifiée et allégée
-2. Le PC client démarre sur ce live boot en mode texte
-3. Le script `client_wipe.sh` se lance **automatiquement**
-4. Le disque est effacé selon la méthode **DoD 5220.22-M (7 passes)** avec vérification
-5. Un **rapport PDF + log** est généré et envoyé automatiquement vers le serveur
-6. Le PC client s'éteint tout seul
-
-Plusieurs PC fils peuvent être traités **en parallèle** au même moment.
+Il utilise actuellement la méthode **Zero (1 passe)** pour un effacement rapide et efficace, et génère automatiquement un **certificat PDF** professionnel avec le nom de votre entreprise à la fin de chaque effacement.
 
 ---
 
-## 🗂️ Structure du projet
+## 🛠️ Configuration Initiale (À faire une seule fois)
 
-```
-pxe_server_linux/
-├── Dockerfile                              # Image Docker multi-stage (build + serveur PXE)
-├── client_wipe.sh                          # Script d'effacement exécuté sur les PC fils
-├── entrypoint.sh                           # Point d'entrée du conteneur (DHCP, TFTP, NFS, SSH)
-├── build.sh                                # Script de build de l'image Docker
-├── run.sh                                  # Script de lancement du conteneur
-├── rapports/                               # Dossier de réception qui contient des exemples des rapports d'effacement
-└── debian-live-13.5.0-amd64-gnome.iso     # ⚠️ ISO Debian Live (voir section ci-dessous)
-```
+Avant d'utiliser le système pour la première fois, vous devez faire deux choses :
+
+1. **Le fichier système :** Assurez-vous d'avoir téléchargé l'image Debian Live (`debian-live-13.5.0-amd64-gnome.iso`) et de l'avoir placée dans le même dossier que ce projet.
+2. **Vos informations d'entreprise :** Ouvrez le fichier `nwipe.conf` avec un éditeur de texte simple et remplacez les informations par défaut (Nom, Adresse, Téléphone). Ces informations s'afficheront en en-tête de vos certificats d'effacement ! Vous pouvez aussi modifier `nwipe_customers.csv` pour indiquer un client par défaut.
 
 ---
 
-## ⚠️ Prérequis obligatoire — ISO Debian Live
+## 🚀 Comment lancer le système (Côté Serveur)
 
-**Avant de builder l'image**, vous devez placer l'ISO Debian Live dans le **même dossier que le Dockerfile** :
+Sur l'ordinateur "Maître" (le serveur) :
 
-```
-debian-live-13.5.0-amd64-gnome.iso
-```
+1. **Préparer le système** (à faire une fois, ou après avoir modifié `nwipe.conf`) :
+   Ouvrez un terminal dans le dossier du projet et tapez :
+   ```bash
+   bash build.sh
+   ```
+   *(Patientez, cette étape prépare le système et peut prendre de 20 à 40 minutes).*
 
-Le nom du fichier doit être **exactement** :
-```
-debian-live-13.5.0-amd64-gnome.iso
-```
-
-> 💡 Téléchargeable sur [https://www.debian.org/CD/live/](https://www.debian.org/CD/live/)  
-> Choisir : **Debian 13 (trixie)** → **amd64** → **gnome**
-
-L'ISO fait environ **3,5 Go**. Le Dockerfile l'extrait, la dégraisse (suppression GNOME, Firefox, sons, etc.) et réinjecte nwipe + le script d'effacement.
+2. **Démarrer le serveur** :
+   ```bash
+   bash run.sh
+   ```
+   Voilà ! Le serveur est allumé et prêt à accueillir les PC à effacer.
 
 ---
 
-## 🚀 Lancement rapide
+## 💻 Comment effacer un PC (Côté Client)
 
-### 1. Prérequis système
+Pour chaque ordinateur que vous souhaitez vider, suivez ces étapes :
 
-- Linux (Ubuntu, Debian…)
-- **Docker** installé et démarré
-- Être connecté au même réseau local que les PC à effacer
+1. Branchez le PC au réseau avec un câble (Ethernet).
+2. Allumez le PC et tapotez la touche pour entrer dans le **BIOS** (souvent `F2`, `F12`, `Suppr` ou `Entrée` selon la marque du PC).
+3. Allez dans le menu de démarrage (Boot priority) et placez le **Démarrage Réseau (PXE / Network Boot)** en **première position**.
+4. *(Si le PC refuse de démarrer, cherchez une option "Secure Boot" et désactivez-la).*
+5. Sauvegardez et redémarrez le PC.
 
-### 2. Placer l'ISO
+**C'est tout !** Le PC va démarrer sur le réseau, lancer l'effacement, créer le certificat PDF, l'envoyer sur le serveur, puis **s'éteindre tout seul**.
 
-Copier l'ISO dans le dossier du projet :
+---
+
+## 📁 Où retrouver les certificats PDF ?
+
+Une fois qu'un ordinateur s'est éteint de lui-même, son effacement est terminé. 
+
+Vous retrouverez ses certificats sur l'ordinateur serveur dans le dossier suivant :
+👉 `~/rapports_wipe/`
+
+Ils sont automatiquement rangés **par date** puis **par numéro de série de l'ordinateur** :
+
+```text
+rapports_wipe/
+└── 2026_06_02/                          ← Date du jour
+    ├── DSBX044852/                      ← Numéro de série du 1er PC
+    │   ├── nwipe_2026_06_02_DSBX044852.pdf       ← Le certificat officiel
+    │   └── old_rapport_2026_06_02_DSBX044852.pdf ← Le rapport secondaire
+    │
+    └── YMDC091241/                      ← Numéro de série du 2ème PC
+        ├── nwipe_2026_06_02_YMDC091241.pdf
+        └── old_rapport_2026_06_02_YMDC091241.pdf
+```
+
+*(Nous avons simplifié ce dossier : il ne contient plus de fichiers de code indéchiffrables, uniquement les PDF prêts à être remis à vos clients).*
+
+---
+
+## ❓ Commandes utiles (Pour s'arrêter)
+
+Si vous avez terminé votre journée d'effacements, vous pouvez éteindre le serveur avec la commande suivante dans le terminal :
 
 ```bash
-cp /chemin/vers/debian-live-13.5.0-amd64-gnome.iso ./
-```
-
-### 3. Builder l'image Docker
-
-```bash
-bash build.sh
-```
-
-> ⏳ Le build peut prendre **20 à 40 minutes** selon la vitesse de la machine et de la connexion internet (téléchargement des paquets Debian).
-
-### 4. Lancer le serveur PXE
-
-```bash
-bash run.sh
-```
-
-Le serveur démarre en arrière-plan. Les rapports d'effacement seront sauvegardés dans :
-```
-~/rapports_wipe/
-```
-
----
-
-## 📊 Méthode d'effacement
-
-| Paramètre        | Valeur                          |
-|------------------|---------------------------------|
-| **Méthode**      | DoD 5220.22-M (7 passes)        |
-| **Vérification** | Activée (dernière passe)        |
-| **Outil**        | nwipe                           |
-| **Rapport**      | PDF + log horodaté par machine  |
-| **Conformité**   | ANSSI / douane française / RGPD |
-
----
-
-## 📁 Rapports d'effacement
-
-Chaque PC effacé génère automatiquement un dossier de rapport contenant :
-
-- **`nwipe_*.pdf`** — Certificat d'effacement officiel nwipe (avec numéro de série, modèle, méthode, statut)
-- **`nwipe_*.log`** — Log complet de l'effacement
-- **`old_rapport_*.pdf`** — Rapport PDF secondaire avec résumé et log intégré
-
-Les rapports sont identifiés par l'**adresse MAC** de la machine et **l'horodatage** :
-```
-~/rapports_wipe/
-└── AABBCCDDEEFF_20250601_143022/
-    ├── nwipe_AABBCCDDEEFF_20250601_143022.pdf
-    ├── nwipe_20250601_143022.log
-    └── old_rapport_AABBCCDDEEFF_20250601_143022.pdf
-```
-
----
-
-## 🛠️ Commandes utiles
-
-```bash
-# Voir les logs du serveur en temps réel
-docker logs -f pxe
-
-# Entrer dans le conteneur
-docker exec -it pxe bash
-
-# Voir les rapports reçus
-ls ~/rapports_wipe/
-
-# Arrêter le serveur
 docker stop pxe
-
-# Supprimer le conteneur (les rapports restent sur l'hôte)
-docker rm pxe
 ```
 
----
-
-## 🏗️ Architecture technique
-
-```
-PC Serveur (Docker)
-│
-├── dnsmasq     → DHCP + TFTP (boot PXE)
-├── NFS server  → Partage du filesystem live (squashfs)
-├── SSH server  → Réception des rapports PDF/log des PC fils
-│
-└── PXE Boot Flow :
-    PC fils démarre → reçoit IP via DHCP → charge vmlinuz + initrd
-    → monte le filesystem NFS → lance client_wipe.sh → efface →
-    → envoie rapport SSH → poweroff
-```
-
----
-
-## 🖥️ Configuration BIOS des PC fils (obligatoire)
-
-Chaque PC à effacer doit être configuré pour **booter sur le réseau en priorité**.
-
-### Accéder au BIOS
-Au démarrage du PC, appuyer sur la touche BIOS selon la marque :
-
-| Marque | Touche BIOS | Touche Boot Menu |
-|--------|------------|------------------|
-| Dell | `F2` | `F12` |
-| HP | `F10` ou `Esc` | `F9` |
-| Lenovo | `F1` ou `Enter` | `F12` |
-| Asus | `F2` ou `Del` | `F8` |
-| Acer | `F2` | `F12` |
-| Gigabyte | `Del` | `F12` |
-
-### Ordre de boot à configurer
-
-Dans le BIOS, aller dans **Boot** → **Boot Priority** (ou **Boot Order**) et mettre **Network Boot** (ou **LAN / PXE**) en **première position** :
-
-```
-1. 🥇 Network Boot (PXE)     ← DOIT être en premier
-2.    Disque dur (HDD/SSD)
-3.    USB
-```
-
-> ⚠️ **IMPORTANT** : Si le Network Boot n'est pas en tête de liste, le PC démarrera sur son disque dur au lieu de booter sur le serveur PXE et **l'effacement ne se lancera pas**.
-
-### Secure Boot
-
-Si le PC ne boote pas malgré le bon ordre, **désactiver le Secure Boot** dans le BIOS :
-- BIOS → **Security** → **Secure Boot** → **Disabled**
-
-Sauvegarder les changements (généralement `F10`) et redémarrer.
-
----
-
-## ❓ Dépannage
-
-**Le PC fils ne boote pas via PXE**
-- ✅ Vérifier que **Network Boot est en 1ère position** dans l'ordre de boot du BIOS
-- ✅ Vérifier que le **Secure Boot est désactivé** si nécessaire
-- S'assurer que le serveur Docker est démarré **avant** d'allumer le PC fils
-- Le serveur et le PC fils doivent être sur le **même réseau local** (même switch/routeur)
-
-**L'image ne se build pas**
-- Vérifier que l'ISO est présente dans le dossier et porte **exactement** le bon nom
-- Vérifier la connexion internet (le build télécharge des paquets Debian)
-
-**Les rapports n'arrivent pas**
-- Vérifier les logs du conteneur : `docker logs -f pxe`
-- Vérifier que le dossier `~/rapports_wipe/` existe et est accessible en écriture
-
----
-
-## 📜 Licence
-
-Usage interne — Effacement professionnel de matériel informatique.
+*(Pour rallumer le serveur le lendemain, il suffira de retaper `bash run.sh` !)*
