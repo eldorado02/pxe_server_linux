@@ -78,7 +78,10 @@ COPY --from=nwipe-builder /usr/lib/python3                                    /t
 COPY --from=nwipe-builder /usr/lib/python3.13                                 /tmp/sysroot/usr/lib/python3.13
 COPY --from=nwipe-builder /usr/lib/x86_64-linux-gnu/libpython3*               /tmp/sysroot/usr/lib/x86_64-linux-gnu/
 COPY --from=nwipe-builder /usr/lib/python3/dist-packages/reportlab            /tmp/sysroot/usr/lib/python3/dist-packages/reportlab
-# Injection script wipe + SSH
+# Injection script wipe + SSH et Config nwipe
+RUN mkdir -p /tmp/sysroot/etc/nwipe
+COPY nwipe.conf /tmp/sysroot/etc/nwipe/nwipe.conf
+COPY nwipe_customers.csv /tmp/sysroot/etc/nwipe/nwipe_customers.csv
 COPY client_wipe.sh /tmp/sysroot/root/client_wipe.sh
 RUN mkdir -p /tmp/sysroot/root/.ssh \
     && cp /root/.ssh/id_ed25519 /tmp/sysroot/root/.ssh/id_ed25519 \
